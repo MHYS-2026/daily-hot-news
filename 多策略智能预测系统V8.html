@@ -1,0 +1,2829 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多策略智能预测系统V8</title>
+    <!-- SheetJS for Excel import -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        /* ========== 全局样式 ========== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0d1117;
+            --bg-card: #161b22;
+            --bg-input: #21262d;
+            --border: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent-blue: #58a6ff;
+            --big-red: #f85149;
+            --big-red-bg: rgba(248, 81, 73, 0.15);
+            --small-blue: #79c0ff;
+            --small-blue-bg: rgba(121, 192, 255, 0.15);
+            --success: #3fb950;
+            --warning: #d29922;
+            --orange: #f0883e;
+            --orange-bg: rgba(240, 136, 62, 0.15);
+            --purple: #a371f7;
+            --purple-bg: rgba(163, 113, 247, 0.15);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* ========== 容器 ========== */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+
+        /* ========== 标题 ========== */
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, var(--big-red), var(--small-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        /* ========== 卡片 ========== */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title::before {
+            content: '';
+            width: 4px;
+            height: 18px;
+            background: var(--accent-blue);
+            border-radius: 2px;
+        }
+
+        /* ========== 等待状态面板 ========== */
+        .wait-status-panel {
+            background: linear-gradient(135deg, var(--orange-bg), var(--bg-input));
+            border: 2px solid var(--warning);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .wait-status-panel.hidden {
+            display: none;
+        }
+
+        .wait-status-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--warning);
+            margin-bottom: 15px;
+        }
+
+        .wait-info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .wait-info-item {
+            background: var(--bg-card);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .wait-info-item .label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .wait-info-item .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--warning);
+        }
+
+        .wait-conditions {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .wait-conditions-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        .condition-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            border-radius: 6px;
+            background: var(--bg-input);
+            font-size: 0.9rem;
+        }
+
+        .condition-item.met {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--success);
+        }
+
+        .condition-item.unmet {
+            background: var(--bg-input);
+            color: var(--text-secondary);
+        }
+
+        .trial-warning {
+            background: var(--purple-bg);
+            border: 1px solid var(--purple);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+            color: var(--purple);
+            font-weight: 600;
+        }
+
+        /* ========== 预测结果显示 ========== */
+        .prediction-display {
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, var(--bg-input), var(--bg-card));
+            border-radius: 16px;
+            border: 2px solid var(--border);
+        }
+
+        .prediction-display.warning-mode {
+            border-color: var(--warning);
+            background: linear-gradient(135deg, rgba(210, 153, 34, 0.1), var(--bg-card));
+        }
+
+        .prediction-display.wait-mode {
+            border-color: var(--orange);
+            background: linear-gradient(135deg, var(--orange-bg), var(--bg-card));
+        }
+
+        .prediction-label {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        .prediction-result {
+            font-size: 4rem;
+            font-weight: 800;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .prediction-result.big {
+            color: var(--big-red);
+            background: var(--big-red-bg);
+            border: 2px solid var(--big-red);
+            text-shadow: 0 0 30px rgba(248, 81, 73, 0.5);
+        }
+
+        .prediction-result.small {
+            color: var(--small-blue);
+            background: var(--small-blue-bg);
+            border: 2px solid var(--small-blue);
+            text-shadow: 0 0 30px rgba(121, 192, 255, 0.5);
+        }
+
+        .prediction-result.neutral {
+            color: var(--text-secondary);
+            background: var(--bg-input);
+            border: 2px solid var(--border);
+        }
+
+        .prediction-result.waiting {
+            color: var(--orange);
+            background: var(--orange-bg);
+            border: 2px solid var(--orange);
+            font-size: 2rem;
+        }
+
+        .prediction-confidence {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+        }
+
+        .prediction-confidence span {
+            font-weight: 600;
+        }
+
+        /* 置信度颜色警告样式 */
+        .confidence-low {
+            color: var(--warning) !important;
+        }
+        .confidence-very-low {
+            color: var(--big-red) !important;
+        }
+
+        /* ========== 模式识别区域 ========== */
+        .pattern-recognition {
+            margin-top: 20px;
+            padding: 15px;
+            background: var(--bg-input);
+            border-radius: 10px;
+        }
+
+        .pattern-recognition-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pattern-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+        }
+
+        .pattern-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+
+        .pattern-item.active {
+            border-color: var(--accent-blue);
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .pattern-item.warning {
+            border-color: var(--warning);
+            background: rgba(210, 153, 34, 0.1);
+        }
+
+        .pattern-icon {
+            font-size: 1.1rem;
+        }
+
+        .pattern-name {
+            color: var(--text-secondary);
+            flex: 1;
+        }
+
+        .pattern-direction {
+            font-weight: 600;
+        }
+
+        .pattern-direction.big { color: var(--big-red); }
+        .pattern-direction.small { color: var(--small-blue); }
+
+        .no-pattern {
+            color: var(--text-secondary);
+            font-style: italic;
+            padding: 15px;
+            text-align: center;
+        }
+
+        /* ========== 策略详情 ========== */
+        .strategy-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .strategy-item {
+            background: var(--bg-input);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .strategy-item .name {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .strategy-item .value {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .strategy-item .value.big { color: var(--big-red); }
+        .strategy-item .value.small { color: var(--small-blue); }
+
+        /* ========== 统计面板 ========== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-item {
+            background: var(--bg-input);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-item .label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .stat-item .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .stat-item .value.success { color: var(--success); }
+        .stat-item .value.warning { color: var(--warning); }
+        .stat-item .value.danger { color: var(--big-red); }
+
+        /* ========== 数据录入区 ========== */
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .input-field {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .input-field label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .input-field input {
+            width: 100%;
+            padding: 12px 15px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .input-field input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        /* ========== 按钮 ========== */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-height: 48px;
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #4c9aed;
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:disabled {
+            background: var(--border);
+            color: var(--text-secondary);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            background: #36a148;
+        }
+
+        .btn-danger {
+            background: var(--big-red);
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background: #da3633;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: #fff;
+        }
+
+        .btn-warning:hover {
+            background: #b8860b;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* 四个按钮同一行均分布局 */
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn-row .btn {
+            flex: 1;
+            text-align: center;
+            white-space: nowrap;
+            overflow: visible;
+        }
+
+        /* ========== 文件上传 ========== */
+        .file-upload {
+            position: relative;
+            display: inline-block;
+        }
+
+        .file-upload input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-upload-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: var(--bg-input);
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            transition: all 0.3s;
+            min-height: 48px;
+        }
+
+        .file-upload:hover .file-upload-label {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+
+        /* ========== 历史数据表格 ========== */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 300px;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--bg-input);
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        td {
+            font-size: 0.95rem;
+        }
+
+        tr:hover {
+            background: var(--bg-input);
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .tag-big {
+            background: var(--big-red-bg);
+            color: var(--big-red);
+        }
+
+        .tag-small {
+            background: var(--small-blue-bg);
+            color: var(--small-blue);
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .delete-btn:hover {
+            color: var(--big-red);
+            background: var(--big-red-bg);
+        }
+
+        /* ========== 预测结果标记 ========== */
+        .result-correct {
+            color: var(--success);
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .result-wrong {
+            color: var(--big-red);
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .prediction-tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .prediction-tag.pending {
+            background: var(--bg-input);
+            color: var(--text-secondary);
+        }
+
+        /* ========== 设置面板 ========== */
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .setting-item {
+            background: var(--bg-input);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .setting-item label {
+            display: block;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .setting-item input[type="range"] {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: var(--border);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .setting-item input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .setting-item .range-value {
+            text-align: center;
+            font-weight: 600;
+            margin-top: 8px;
+            color: var(--accent-blue);
+        }
+
+        /* ========== 提示消息 ========== */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 15px 25px;
+            border-radius: 10px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--big-red); }
+        .toast.warning { border-color: var(--warning); }
+
+        /* ========== 响应式 ========== */
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 1.4rem;
+            }
+
+            .prediction-result {
+                font-size: 3rem;
+            }
+
+            .btn {
+                padding: 14px 20px;
+                font-size: 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .strategy-details {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .pattern-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .wait-info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ========== 空状态 ========== */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        /* ========== 加载动画 ========== */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--border);
+            border-radius: 50%;
+            border-top-color: var(--accent-blue);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 标题 -->
+        <header class="header">
+            <h1 id="systemTitle">🎲 多策略智能预测系统V8</h1>
+            <p class="subtitle">数据驱动 | 连错控制优先 | 多模式识别</p>
+        </header>
+
+        <!-- 等待状态面板 - V8新增 -->
+        <div id="waitStatusPanel" class="wait-status-panel hidden">
+            <div class="wait-status-title">⏳ 等待数据规律明确</div>
+            <div class="wait-info-grid">
+                <div class="wait-info-item">
+                    <div class="label">已等待期数</div>
+                    <div class="value" id="waitPeriods">0</div>
+                </div>
+                <div class="wait-info-item">
+                    <div class="label">最低等待期数</div>
+                    <div class="value" id="minWaitPeriods">2</div>
+                </div>
+                <div class="wait-info-item">
+                    <div class="label">恢复条件</div>
+                    <div class="value" id="recoveryConditions">0/2</div>
+                </div>
+            </div>
+            <div class="wait-conditions">
+                <div class="wait-conditions-title">📋 恢复条件（需满足至少2项）</div>
+                <div id="conditionList">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+            <div id="trialWarning" class="trial-warning hidden">
+                🔍 试探预测模式 - 当前为试探性预测，下一期验证正确后正式恢复
+            </div>
+            <div style="margin-top: 15px; font-size: 0.9rem; color: var(--text-secondary);">
+                累计进入等待: <span id="totalWaitCount" style="color: var(--warning); font-weight: 600;">0</span> 次
+            </div>
+        </div>
+
+        <!-- 统计面板 -->
+        <div class="card">
+            <div class="card-title">📈 预测统计</div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="label">总预测次数</div>
+                    <div class="value" id="totalPredictions">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">预测准确率</div>
+                    <div class="value success" id="accuracy">--%</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">平均信度</div>
+                    <div class="value" id="avgConfidence">--%</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">当前连错</div>
+                    <div class="value" id="currentStreak">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">最大连错</div>
+                    <div class="value danger" id="maxStreak">0</div>
+                </div>
+            </div>
+        </div>
+
+        
+<!-- 数据录入 -->
+        <div class="card">
+            <div class="card-title">📝 数据录入</div>
+            <!-- 手动录入 -->
+            <div class="input-group">
+                <div class="input-field">
+                    <label>期号</label>
+                    <input type="number" id="periodInput" value="1" min="1" placeholder="请输入期号">
+                </div>
+                <div class="input-field">
+                    <label>和值 (3-18)</label>
+                    <input type="number" id="sumInput" min="3" max="18" placeholder="3-18">
+                </div>
+            </div>
+            
+            <!-- 四个按钮同一行均分布局 -->
+            <div class="btn-row">
+                <button class="btn btn-primary" id="predictBtn" onclick="executePrediction()">执行预测</button>
+                <button class="btn btn-secondary" onclick="batchImport()">📥 批量导入</button>
+                <button class="btn btn-secondary" onclick="exportData()">📤 导出数据</button>
+                <button class="btn btn-danger" onclick="clearAllData()">🗑️ 清空数据</button>
+            </div>
+        </div>
+
+        
+<!-- 预测结果显示 -->
+        <div class="card">
+            <div class="card-title">📊 当前预测</div>
+            <div id="predictionDisplay" class="prediction-display">
+                <div class="prediction-label" id="predictionLabel">第<span id="nextPeriodNumber">1</span>期预测结果为</div>
+                <div id="predictionResult" class="prediction-result neutral">等待数据</div>
+                <div class="prediction-confidence">
+                    置信度: <span id="confidenceValue">--</span>% | 
+                    建议: <span id="suggestion">录入数据后开始预测</span>
+                </div>
+            </div>
+
+            <!-- 模式识别区域 -->
+            <div class="pattern-recognition" id="patternRecognition">
+                <div class="pattern-recognition-title">🔮 模式识别</div>
+                <div class="pattern-grid" id="patternGrid">
+                    <div class="no-pattern">分析中...</div>
+                </div>
+            </div>
+
+            <!-- 各策略详情 -->
+            <div class="strategy-details" id="strategyDetails">
+                <div class="strategy-item">
+                    <div class="name">🔄 连号反转</div>
+                    <div class="value" id="strategyReverse">--</div>
+                </div>
+                <div class="strategy-item">
+                    <div class="name">📈 滑动窗口</div>
+                    <div class="value" id="strategySliding">--</div>
+                </div>
+                <div class="strategy-item">
+                    <div class="name">🔍 模式匹配</div>
+                    <div class="value" id="strategyPattern">--</div>
+                </div>
+                <div class="strategy-item">
+                    <div class="name">⚖️ 综合加权</div>
+                    <div class="value" id="strategyWeighted">--</div>
+                </div>
+            </div>
+        </div>
+
+        
+<!-- 历史数据 -->
+        <div class="card">
+            <div class="card-title">📋 历史记录</div>
+            <div class="table-container">
+                <table id="historyTable">
+                    <thead>
+                        <tr>
+                            <th>期号</th>
+                            <th>和值</th>
+                            <th>大小</th>
+                            <th>预测</th>
+                            <th>信度</th>
+                            <th>结果</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody">
+                        <!-- 数据行将通过JS动态生成 -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="emptyState" class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                <p>暂无数据，请添加记录或导入Excel文件</p>
+            </div>
+        </div>
+
+        
+<!-- 设置面板 -->
+        <div class="card">
+            <div class="card-title">⚙️ 参数设置</div>
+            <div class="settings-grid">
+                <div class="setting-item">
+                    <label>滑动窗口大小</label>
+                    <input type="range" id="windowSize" min="5" max="30" value="10" oninput="updateSetting('windowSize', this.value)">
+                    <div class="range-value"><span id="windowSizeValue">10</span> 期</div>
+                </div>
+                <div class="setting-item">
+                    <label>模式匹配长度</label>
+                    <input type="range" id="patternLength" min="3" max="20" value="10" oninput="updateSetting('patternLength', this.value)">
+                    <div class="range-value"><span id="patternLengthValue">10</span> 期</div>
+                </div>
+                <div class="setting-item">
+                    <label>反转策略权重</label>
+                    <input type="range" id="reverseWeight" min="0" max="50" value="20" oninput="updateSetting('reverseWeight', this.value)">
+                    <div class="range-value"><span id="reverseWeightValue">20</span>%</div>
+                </div>
+            </div>
+            <div style="margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="resetSettings()">🔄 恢复默认设置</button>
+            </div>
+        </div>
+
+        
+<!-- 使用说明 -->
+        <div class="card">
+            <div class="card-title">📖 使用说明</div>
+            <div style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.8;">
+                <p><strong>🎯 预测规则：</strong>三骰子和值 3-10 为"小"，11-18 为"大"</p>
+                <p><strong>🔒 V8连错控制机制（优先级最高）：</strong></p>
+                <ul style="margin-left: 20px; margin-top: 8px;">
+                    <li><strong>连错0次：</strong>正常预测，多策略综合分析</li>
+                    <li><strong>连错1次：</strong>黄色警告，降低置信度，显示⚠️</li>
+                    <li><strong>连错2次：</strong>进入等待模式，停止预测，需等待至少2期</li>
+                    <li><strong>绝对不允许连错3次以上</strong></li>
+                </ul>
+                <p style="margin-top: 12px;"><strong>⏳ 等待恢复条件（满足至少2项）：</strong></p>
+                <ul style="margin-left: 20px; margin-top: 8px;">
+                    <li>最近3期连续同向（3大或3小）</li>
+                    <li>最近5期中4期同向</li>
+                    <li>历史模式匹配胜率>65%</li>
+                    <li>连错方向出现反转信号</li>
+                </ul>
+                <p style="margin-top: 12px;"><strong>🔍 试探预测：</strong>等待5期以上可降低恢复门槛，但恢复后首次为试探预测，验证正确后正式恢复</p>
+                <p style="margin-top: 12px;"><strong>💡 提示：</strong>系统会自动保存数据到浏览器本地存储</p>
+            </div>
+        </div>
+    </div>
+
+    
+<!-- 提示消息 -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // =============================================
+        // 全局状态和配置 V8
+        // =============================================
+        
+        // 程序版本号（修改此处自动更新所有显示）
+        const VERSION = 8;
+        const SYSTEM_NAME = `多策略智能预测系统V${VERSION}`;
+        
+        // 默认配置 V8
+        const DEFAULT_CONFIG = {
+            windowSize: 10,           // 滑动窗口大小
+            patternLength: 10,        // 模式匹配长度
+            // V8 策略权重
+            reverseWeight: 20,        // 反转策略权重
+            slidingWeight: 25,        // 滑动窗口权重
+            patternWeight: 25,        // 模式匹配权重
+            longStreakWeight: 15,     // 长龙模式权重
+            singleJumpWeight: 10,     // 单跳模式权重
+            tripleLinkWeight: 10,     // 三联模式权重
+            comboWeight: 10           // 单双组合权重
+        };
+
+        // 当前配置（从localStorage加载或使用默认值）
+        let config = { ...DEFAULT_CONFIG };
+
+        // 历史记录数据
+        let historyData = [];
+
+        // 预测历史（用于统计准确率）
+        let predictionHistory = [];
+
+        // ========== V8 核心状态变量 ==========
+        
+        // 当前连错次数
+        let currentErrorStreak = 0;
+
+        // 最大连错次数
+        let maxErrorStreak = 0;
+
+        // 是否处于等待模式
+        let isWaitingMode = false;
+
+        // 等待开始时的连错次数记录（用于恢复后清零）
+        let waitStartingErrorCount = 0;
+
+        // 等待期间录入了多少期数据
+        let waitPeriodsCount = 0;
+
+        // 累计进入等待模式的次数
+        let totalWaitCount = 0;
+
+        // 递增惩罚：当前是第几次进入等待
+        let waitPenaltyLevel = 0;
+
+        // 是否处于试探预测模式
+        let isTrialMode = false;
+
+        // 期号是否被手动修改
+        let periodManuallyEdited = false;
+
+        // 当前预测结果（用于记录预测）
+        let currentPrediction = null;
+
+        // 近期模式识别结果缓存（用于UI显示）
+        let patternRecognitionCache = null;
+
+        // =============================================
+        // 工具函数
+        // =============================================
+
+        /**
+         * 计算和值对应的大小
+         * @param {number} sum - 骰子和值
+         * @returns {string} 'big' 或 'small'
+         */
+        function getSize(sum) {
+            return sum >= 11 ? 'big' : 'small';
+        }
+
+        /**
+         * 显示提示消息
+         * @param {string} message - 消息内容
+         * @param {string} type - 'success' 或 'error' 或 'warning'
+         */
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast show ${type}`;
+            setTimeout(() => {
+                toast.className = 'toast';
+            }, 3000);
+        }
+
+        /**
+         * 保存数据到localStorage
+         */
+        function saveToStorage() {
+            try {
+                localStorage.setItem('dicePredictionV8_data', JSON.stringify(historyData));
+                localStorage.setItem('dicePredictionV8_config', JSON.stringify(config));
+                localStorage.setItem('dicePredictionV8_stats', JSON.stringify({
+                    currentErrorStreak,
+                    maxErrorStreak,
+                    predictionHistory,
+                    periodManuallyEdited,
+                    // V8 新增状态
+                    isWaitingMode,
+                    waitStartingErrorCount,
+                    waitPeriodsCount,
+                    totalWaitCount,
+                    waitPenaltyLevel,
+                    isTrialMode
+                }));
+            } catch (e) {
+                console.error('保存失败:', e);
+            }
+        }
+
+        /**
+         * 从localStorage加载数据
+         */
+        function loadFromStorage() {
+            try {
+                const data = localStorage.getItem('dicePredictionV8_data');
+                if (data) {
+                    historyData = JSON.parse(data);
+                }
+                
+                const savedConfig = localStorage.getItem('dicePredictionV8_config');
+                if (savedConfig) {
+                    config = { ...DEFAULT_CONFIG, ...JSON.parse(savedConfig) };
+                    updateSettingsUI();
+                }
+                
+                const stats = localStorage.getItem('dicePredictionV8_stats');
+                if (stats) {
+                    const parsed = JSON.parse(stats);
+                    currentErrorStreak = parsed.currentErrorStreak || 0;
+                    maxErrorStreak = parsed.maxErrorStreak || 0;
+                    predictionHistory = parsed.predictionHistory || [];
+                    periodManuallyEdited = parsed.periodManuallyEdited || false;
+                    // V8 新增状态
+                    isWaitingMode = parsed.isWaitingMode || false;
+                    waitStartingErrorCount = parsed.waitStartingErrorCount || 0;
+                    waitPeriodsCount = parsed.waitPeriodsCount || 0;
+                    totalWaitCount = parsed.totalWaitCount || 0;
+                    waitPenaltyLevel = parsed.waitPenaltyLevel || 0;
+                    isTrialMode = parsed.isTrialMode || false;
+                }
+                
+                // 设置期号输入框的初始值
+                if (historyData.length > 0) {
+                    // 找到最大的期号并+1
+                    const maxPeriod = Math.max(...historyData.map(item => parseInt(item.period) || 0));
+                    document.getElementById('periodInput').value = maxPeriod + 1;
+                } else {
+                    document.getElementById('periodInput').value = '1';
+                }
+            } catch (e) {
+                console.error('加载失败:', e);
+            }
+        }
+
+        // =============================================
+        // V8 核心：等待模式管理
+        // =============================================
+
+        /**
+         * V8 进入等待模式
+         */
+        function enterWaitMode() {
+            if (!isWaitingMode) {
+                isWaitingMode = true;
+                waitStartingErrorCount = currentErrorStreak;
+                waitPeriodsCount = 0;
+                totalWaitCount++;
+                waitPenaltyLevel++;
+                isTrialMode = false;
+                console.log(`[V8] 进入等待模式 - 累计第${totalWaitCount}次进入，惩罚等级${waitPenaltyLevel}`);
+            }
+        }
+
+        /**
+         * V8 计算最低等待期数（递增惩罚）
+         */
+        function getMinWaitPeriods() {
+            // 第1次进入等待：需等待至少2期
+            // 第2次进入等待：需等待至少3期
+            // 第3次进入等待：需等待至少4期
+            // 以此类推...
+            return Math.min(2 + waitPenaltyLevel - 1, 8); // 最高8期
+        }
+
+        /**
+         * V8 检查恢复条件（纯数据规律判断，不看置信度）
+         * @returns {object} {conditions: array, metCount: number, canRecover: boolean, isTrial: boolean}
+         */
+        function checkRecoveryConditions() {
+            const conditions = [];
+            let metCount = 0;
+
+            // 条件A: 最近3期连续同向（3大或3小）
+            if (historyData.length >= 3) {
+                const last3 = historyData.slice(-3).map(item => getSize(item.sum));
+                if (last3[0] === last3[1] && last3[1] === last3[2]) {
+                    conditions.push({ name: 'A', text: '最近3期连续同向', met: true, detail: `连续3次${last3[0] === 'big' ? '大' : '小'}` });
+                    metCount++;
+                } else {
+                    conditions.push({ name: 'A', text: '最近3期连续同向', met: false, detail: '需3大或3小' });
+                }
+            } else {
+                conditions.push({ name: 'A', text: '最近3期连续同向', met: false, detail: '数据不足' });
+            }
+
+            // 条件B: 最近5期中4期同向
+            if (historyData.length >= 5) {
+                const last5 = historyData.slice(-5).map(item => getSize(item.sum));
+                const bigCount = last5.filter(s => s === 'big').length;
+                if (bigCount >= 4 || (5 - bigCount) >= 4) {
+                    conditions.push({ name: 'B', text: '最近5期中4期同向', met: true, detail: `${bigCount}大${5-bigCount}小` });
+                    metCount++;
+                } else {
+                    conditions.push({ name: 'B', text: '最近5期中4期同向', met: false, detail: `${bigCount}大${5-bigCount}小` });
+                }
+            } else {
+                conditions.push({ name: 'B', text: '最近5期中4期同向', met: false, detail: '数据不足' });
+            }
+
+            // 条件C: 当前数据序列在历史中匹配到相同模式，该模式后续方向胜率>65%
+            if (historyData.length >= config.patternLength + 5) {
+                const patternResult = checkPatternMatchWinRate();
+                if (patternResult.met) {
+                    conditions.push({ name: 'C', text: '历史模式匹配胜率>65%', met: true, detail: `胜率${patternResult.rate}%` });
+                    metCount++;
+                } else {
+                    conditions.push({ name: 'C', text: '历史模式匹配胜率>65%', met: false, detail: patternResult.detail });
+                }
+            } else {
+                conditions.push({ name: 'C', text: '历史模式匹配胜率>65%', met: false, detail: '数据不足' });
+            }
+
+            // 条件D: 连错方向出现反转
+            // 分析最近2期是否与连错预测方向相反
+            if (historyData.length >= 2 && waitStartingErrorCount >= 2) {
+                const last2 = historyData.slice(-2).map(item => getSize(item.sum));
+                // 检查最近2期是否都在朝正确方向发展
+                if (last2[0] === last2[1]) {
+                    conditions.push({ name: 'D', text: '出现明显趋势反转', met: true, detail: `最近2期同向` });
+                    metCount++;
+                } else {
+                    conditions.push({ name: 'D', text: '出现明显趋势反转', met: false, detail: '趋势仍不稳定' });
+                }
+            } else {
+                conditions.push({ name: 'D', text: '出现明显趋势反转', met: false, detail: '数据不足' });
+            }
+
+            // 计算是否可以恢复
+            // 正常情况需满足至少2个条件
+            // 等待5期以上降低门槛：满足1个条件即可（进入试探模式）
+            let canRecover = false;
+            let isTrial = false;
+
+            if (waitPeriodsCount >= 5 && metCount >= 1) {
+                // 等待太久，降低门槛，进入试探预测模式
+                canRecover = true;
+                isTrial = true;
+            } else if (metCount >= 2) {
+                canRecover = true;
+                isTrial = false;
+            }
+
+            return {
+                conditions,
+                metCount,
+                canRecover,
+                isTrial,
+                minRequired: waitPeriodsCount >= 5 ? 1 : 2
+            };
+        }
+
+        /**
+         * 检查历史模式匹配胜率
+         */
+        function checkPatternMatchWinRate() {
+            const patternLength = config.patternLength;
+            if (historyData.length < patternLength + 3) {
+                return { met: false, rate: 0, detail: '数据不足' };
+            }
+
+            // 获取最近patternLength期的模式
+            const recentPattern = historyData.slice(-patternLength).map(item => getSize(item.sum));
+            const searchData = historyData.slice(0, -1);
+
+            let matchCount = 0;
+            let correctCount = 0;
+
+            for (let i = 0; i <= searchData.length - patternLength; i++) {
+                const slice = searchData.slice(i, i + patternLength).map(item => getSize(item.sum));
+                
+                if (JSON.stringify(slice) === JSON.stringify(recentPattern)) {
+                    matchCount++;
+                    // 检查匹配后下一期的结果
+                    const nextResult = getSize(searchData[i + patternLength].sum);
+                    // 统计大和小各出现多少次
+                    if (nextResult === 'big') {
+                        correctCount++;
+                    } else {
+                        correctCount++;
+                    }
+                }
+            }
+
+            if (matchCount < 2) {
+                return { met: false, rate: 0, detail: `匹配${matchCount}次，不足` };
+            }
+
+            // 简化：检查该模式历史后续出现大/小的比例
+            const searchData2 = historyData.slice(0, -1);
+            let bigAfterMatch = 0;
+            let smallAfterMatch = 0;
+
+            for (let i = 0; i <= searchData2.length - patternLength; i++) {
+                const slice = searchData2.slice(i, i + patternLength).map(item => getSize(item.sum));
+                
+                if (JSON.stringify(slice) === JSON.stringify(recentPattern)) {
+                    const nextResult = getSize(searchData2[i + patternLength].sum);
+                    if (nextResult === 'big') {
+                        bigAfterMatch++;
+                    } else {
+                        smallAfterMatch++;
+                    }
+                }
+            }
+
+            const totalAfter = bigAfterMatch + smallAfterMatch;
+            if (totalAfter === 0) {
+                return { met: false, rate: 0, detail: '无后续数据' };
+            }
+
+            const maxRate = Math.max(bigAfterMatch / totalAfter, smallAfterMatch / totalAfter) * 100;
+            
+            return {
+                met: maxRate > 65,
+                rate: Math.round(maxRate),
+                detail: `${bigAfterMatch}大${smallAfterMatch}小`
+            };
+        }
+
+        /**
+         * V8 尝试退出等待模式
+         * @returns {boolean} 是否成功退出
+         */
+        function tryExitWaitMode() {
+            if (!isWaitingMode) return true;
+
+            const recovery = checkRecoveryConditions();
+            
+            if (recovery.canRecover) {
+                if (recovery.isTrial) {
+                    // 进入试探预测模式
+                    isTrialMode = true;
+                    console.log('[V8] 试探预测模式启动 - 等待太久，降低恢复门槛');
+                } else {
+                    // 正式恢复
+                    isWaitingMode = false;
+                    isTrialMode = false;
+                    currentErrorStreak = 0; // 正式清零
+                    waitStartingErrorCount = 0;
+                    waitPeriodsCount = 0;
+                    console.log('[V8] 正式退出等待模式，连错计数清零');
+                }
+                return true;
+            }
+
+            return false;
+        }
+
+        /**
+         * V8 试探预测失败，重回等待
+         */
+        function trialFailed() {
+            isTrialMode = false;
+            isWaitingMode = true;
+            // 不清零，继续等待
+            // 增加惩罚等级
+            waitPenaltyLevel++;
+            console.log(`[V8] 试探预测失败，重回等待，惩罚等级升至${waitPenaltyLevel}`);
+        }
+
+        // =============================================
+        // 预测策略实现
+        // =============================================
+
+        /**
+         * 连号反转策略
+         * 连续出现2次同方向时，预测反转
+         * @returns {object} {prediction: 'big'|'small', confidence: 0-100}
+         */
+        function reverseStrategy() {
+            if (historyData.length < 2) {
+                return { prediction: null, confidence: 0, reason: '数据不足' };
+            }
+
+            const lastTwo = historyData.slice(-2);
+            const last1 = getSize(lastTwo[0].sum);
+            const last2 = getSize(lastTwo[1].sum);
+
+            // 连续两次相同方向，预测反转
+            if (last1 === last2) {
+                const prediction = last1 === 'big' ? 'small' : 'big';
+                return { 
+                    prediction, 
+                    confidence: 85, 
+                    reason: `连续2次${last1 === 'big' ? '大' : '小'}，预测反转` 
+                };
+            }
+
+            // 非连续，保持原有趋势的概率较低
+            return { 
+                prediction: null, 
+                confidence: 40, 
+                reason: '无明显连号趋势' 
+            };
+        }
+
+        /**
+         * 滑动窗口统计策略
+         * 统计近期大小比例，预测出现较少的一方（均值回归）
+         * @returns {object} {prediction: 'big'|'small', confidence: 0-100}
+         */
+        function slidingWindowStrategy() {
+            const windowSize = config.windowSize;
+            if (historyData.length < windowSize) {
+                return { prediction: null, confidence: 0, reason: `需要至少${windowSize}期数据` };
+            }
+
+            const window = historyData.slice(-windowSize);
+            let bigCount = 0;
+            let smallCount = 0;
+
+            window.forEach(item => {
+                if (getSize(item.sum) === 'big') {
+                    bigCount++;
+                } else {
+                    smallCount++;
+                }
+            });
+
+            const diff = Math.abs(bigCount - smallCount);
+            const total = bigCount + smallCount;
+            
+            // 计算偏向程度
+            let prediction, confidence;
+            
+            if (bigCount > smallCount) {
+                prediction = 'small';  // 预测较少的"小"
+                confidence = Math.min(70, 50 + diff * 5);
+            } else if (smallCount > bigCount) {
+                prediction = 'big';     // 预测较少的"大"
+                confidence = Math.min(70, 50 + diff * 5);
+            } else {
+                return { prediction: null, confidence: 30, reason: '大小比例相等' };
+            }
+
+            return { 
+                prediction, 
+                confidence, 
+                reason: `近${windowSize}期: 大${bigCount}次 小${smallCount}次` 
+            };
+        }
+
+        /**
+         * 模式匹配策略
+         * 在历史数据中搜索与最近K期相同的序列，统计后续结果
+         * @returns {object} {prediction: 'big'|'small', confidence: 0-100}
+         */
+        function patternMatchingStrategy() {
+            const patternLength = config.patternLength;
+            if (historyData.length < patternLength + 1) {
+                return { prediction: null, confidence: 0, reason: `需要至少${patternLength + 1}期数据` };
+            }
+
+            // 获取最近patternLength期的模式
+            const recentPattern = historyData.slice(-patternLength).map(item => getSize(item.sum));
+            const searchData = historyData.slice(0, -1);
+
+            // 统计匹配次数和后续结果
+            let matchCount = 0;
+            let nextBigCount = 0;
+            let nextSmallCount = 0;
+
+            for (let i = 0; i <= searchData.length - patternLength; i++) {
+                const slice = searchData.slice(i, i + patternLength).map(item => getSize(item.sum));
+                
+                if (JSON.stringify(slice) === JSON.stringify(recentPattern)) {
+                    matchCount++;
+                    const nextResult = getSize(searchData[i + patternLength].sum);
+                    if (nextResult === 'big') {
+                        nextBigCount++;
+                    } else {
+                        nextSmallCount++;
+                    }
+                }
+            }
+
+            if (matchCount === 0) {
+                return { prediction: null, confidence: 20, reason: '无匹配模式' };
+            }
+
+            // 计算概率
+            let prediction, confidence;
+            if (nextBigCount > nextSmallCount) {
+                prediction = 'big';
+                confidence = Math.min(80, (nextBigCount / matchCount) * 100);
+            } else if (nextSmallCount > nextBigCount) {
+                prediction = 'small';
+                confidence = Math.min(80, (nextSmallCount / matchCount) * 100);
+            } else {
+                return { prediction: null, confidence: 40, reason: `匹配${matchCount}次，概率相等` };
+            }
+
+            return { 
+                prediction, 
+                confidence, 
+                reason: `匹配${matchCount}次: 大${nextBigCount} 小${nextSmallCount}` 
+            };
+        }
+
+        // =============================================
+        // V8 生成最终预测 - 核心守卫逻辑
+        // =============================================
+
+        /**
+         * V8 生成最终预测 - 绝对不允许连错>=2后输出预测
+         * @returns {object} 最终预测结果
+         */
+        function generatePrediction() {
+            // ===== V8 硬性守卫：连错>=2绝对不能输出预测 =====
+            if (currentErrorStreak >= 2) {
+                // 进入等待模式
+                if (!isWaitingMode) {
+                    enterWaitMode();
+                }
+                
+                // 检查是否可以恢复
+                if (tryExitWaitMode()) {
+                    if (isTrialMode) {
+                        // 试探预测模式 - 继续生成预测
+                        console.log('[V8] 试探预测模式，执行预测...');
+                    } else {
+                        // 正式恢复，生成正常预测
+                        return generateNormalPrediction();
+                    }
+                } else {
+                    // 无法恢复，返回等待状态
+                    return {
+                        final: null,
+                        isWaiting: true,
+                        waitInfo: {
+                            waitPeriods: waitPeriodsCount,
+                            minWaitPeriods: getMinWaitPeriods(),
+                            conditions: checkRecoveryConditions()
+                        }
+                    };
+                }
+            }
+
+            // 连错1次：正常预测但显示警告，降低置信度
+            if (currentErrorStreak === 1) {
+                const result = generateNormalPrediction();
+                result.warning = true;
+                result.warningLevel = 1;
+                result.warningMsg = '⚠️连错1次，策略已调整';
+                // 降低置信度
+                result.confidence = Math.max(result.confidence - 15, 35);
+                return result;
+            }
+
+            // 连错0次：正常预测
+            return generateNormalPrediction();
+        }
+
+        /**
+         * 生成正常预测（内部函数，不做守卫检查）
+         */
+        function generateNormalPrediction() {
+            // 获取各策略结果
+            const reverse = reverseStrategy();
+            const sliding = slidingWindowStrategy();
+            const pattern = patternMatchingStrategy();
+            
+            // V8 新增模式识别策略
+            const longStreak = longStreakStrategy();
+            const singleJump = singleJumpStrategy();
+            const tripleLink = tripleLinkStrategy();
+            const combo = comboPatternStrategy();
+            const volatile = volatileMarketStrategy();
+            
+            const weighted = weightedStrategy();
+            
+            // 构建详情对象
+            const details = {
+                reverse,
+                sliding,
+                pattern,
+                weighted,
+                // V8 新增
+                longStreak,
+                singleJump,
+                tripleLink,
+                combo,
+                volatile,
+                // 缓存模式识别结果用于UI显示
+                patternRecognition: {
+                    longStreak: { active: longStreak.prediction !== null, prediction: longStreak.prediction, confidence: longStreak.confidence },
+                    singleJump: { active: singleJump.prediction !== null, prediction: singleJump.prediction, confidence: singleJump.confidence },
+                    tripleLink: { active: tripleLink.prediction !== null, prediction: tripleLink.prediction, confidence: tripleLink.confidence },
+                    combo: { active: combo.prediction !== null, prediction: combo.prediction, confidence: combo.confidence },
+                    isVolatile: volatile.isVolatile
+                }
+            };
+
+            // 保存模式识别结果供UI使用
+            patternRecognitionCache = details.patternRecognition;
+
+            // 默认: 使用综合加权策略
+            return {
+                final: weighted.prediction,
+                confidence: weighted.confidence,
+                source: 'weighted_v8',
+                protectionLevel: 0,
+                details: details,
+                isVolatile: volatile.isVolatile
+            };
+        }
+
+        // =============================================
+        // 其他策略（保持原有逻辑）
+        // =============================================
+
+        /**
+         * 长龙模式识别策略
+         * @returns {object}
+         */
+        function longStreakStrategy() {
+            if (historyData.length < 3) {
+                return { prediction: null, confidence: 0, reason: '数据不足', type: 'longStreak' };
+            }
+
+            const recent = historyData.slice(-3).map(item => getSize(item.sum));
+            const last1 = recent[0];
+            const last2 = recent[1];
+            const last3 = recent[2];
+
+            if (last1 !== last2) {
+                return { prediction: null, confidence: 30, reason: '无连续同向', type: 'longStreak' };
+            }
+
+            const searchData = historyData.slice(0, -1);
+            let continueCount = 0;
+            let reverseCount = 0;
+            
+            for (let i = 0; i <= searchData.length - 3; i++) {
+                const s1 = getSize(searchData[i].sum);
+                const s2 = getSize(searchData[i + 1].sum);
+                const s3 = getSize(searchData[i + 2].sum);
+                
+                if (s1 === s2) {
+                    if (s3 === s1) {
+                        continueCount++;
+                    } else {
+                        reverseCount++;
+                    }
+                }
+            }
+
+            const totalCases = continueCount + reverseCount;
+            if (totalCases < 3) {
+                return { prediction: null, confidence: 25, reason: `历史样本不足(${totalCases}例)`, type: 'longStreak' };
+            }
+
+            const continueRate = continueCount / totalCases;
+            
+            let prediction, confidence;
+            if (continueRate >= 0.55) {
+                prediction = last1;
+                confidence = Math.min(75, 50 + continueRate * 30);
+                return {
+                    prediction,
+                    confidence,
+                    reason: `长龙预测: 预测继续${last1 === 'big' ? '大' : '小'}`,
+                    type: 'longStreak'
+                };
+            } else if (continueRate <= 0.45) {
+                prediction = last1 === 'big' ? 'small' : 'big';
+                confidence = Math.min(75, 50 + (1 - continueRate) * 30);
+                return {
+                    prediction,
+                    confidence,
+                    reason: `长龙反转: 预测${prediction === 'big' ? '大' : '小'}`,
+                    type: 'longStreak'
+                };
+            }
+
+            return { prediction: null, confidence: 35, reason: '长龙趋势不明', type: 'longStreak' };
+        }
+
+        /**
+         * 单跳模式识别策略
+         * @returns {object}
+         */
+        function singleJumpStrategy() {
+            if (historyData.length < 4) {
+                return { prediction: null, confidence: 0, reason: '数据不足', type: 'singleJump' };
+            }
+
+            const recent = historyData.slice(-6).map(item => getSize(item.sum));
+            
+            let jumpCount = 0;
+            for (let i = 0; i < recent.length - 1; i++) {
+                if (recent[i] !== recent[i + 1]) {
+                    jumpCount++;
+                }
+            }
+
+            if (jumpCount < 3) {
+                return { prediction: null, confidence: 20, reason: '未检测到单跳模式', type: 'singleJump' };
+            }
+
+            const searchData = historyData.slice(0, -1);
+            let alternateCount = 0;
+            let repeatCount = 0;
+            
+            for (let i = 0; i <= searchData.length - 4; i++) {
+                const s1 = getSize(searchData[i].sum);
+                const s2 = getSize(searchData[i + 1].sum);
+                const s3 = getSize(searchData[i + 2].sum);
+                const s4 = getSize(searchData[i + 3].sum);
+                
+                if (s1 !== s2 && s2 === s3 && s3 !== s4) {
+                    if (s4 !== s3) {
+                        alternateCount++;
+                    } else {
+                        repeatCount++;
+                    }
+                }
+            }
+
+            const totalCases = alternateCount + repeatCount;
+            if (totalCases < 3) {
+                return { prediction: null, confidence: 25, reason: `历史样本不足(${totalCases}例)`, type: 'singleJump' };
+            }
+
+            const alternateRate = alternateCount / totalCases;
+            const lastSize = recent[recent.length - 1];
+            const prediction = lastSize === 'big' ? 'small' : 'big';
+            
+            if (alternateRate >= 0.5) {
+                return {
+                    prediction,
+                    confidence: Math.min(70, 45 + alternateRate * 30),
+                    reason: `单跳预测: 继续交替`,
+                    type: 'singleJump'
+                };
+            }
+
+            return { prediction: null, confidence: 30, reason: '单跳延续概率低', type: 'singleJump' };
+        }
+
+        /**
+         * 三联模式识别策略
+         * @returns {object}
+         */
+        function tripleLinkStrategy() {
+            if (historyData.length < 6) {
+                return { prediction: null, confidence: 0, reason: '数据不足', type: 'tripleLink' };
+            }
+
+            const recent = historyData.slice(-4).map(item => getSize(item.sum));
+            if (recent[0] !== recent[1]) {
+                return { prediction: null, confidence: 25, reason: '无三联前兆', type: 'tripleLink' };
+            }
+
+            const searchData = historyData.slice(0, -1);
+            let tripleCount = 0;
+            let breakCount = 0;
+            
+            for (let i = 0; i <= searchData.length - 3; i++) {
+                const s1 = getSize(searchData[i].sum);
+                const s2 = getSize(searchData[i + 1].sum);
+                const s3 = getSize(searchData[i + 2].sum);
+                
+                if (s1 === s2) {
+                    if (s3 === s1) {
+                        tripleCount++;
+                    } else {
+                        breakCount++;
+                    }
+                }
+            }
+
+            const totalCases = tripleCount + breakCount;
+            if (totalCases < 3) {
+                return { prediction: null, confidence: 25, reason: `历史样本不足(${totalCases}例)`, type: 'tripleLink' };
+            }
+
+            const tripleRate = tripleCount / totalCases;
+            const lastSize = recent[0];
+            
+            if (tripleRate >= 0.5) {
+                return {
+                    prediction: lastSize,
+                    confidence: Math.min(70, 45 + tripleRate * 30),
+                    reason: `三联预测: 继续同向`,
+                    type: 'tripleLink'
+                };
+            } else {
+                return {
+                    prediction: lastSize === 'big' ? 'small' : 'big',
+                    confidence: Math.min(70, 45 + (1 - tripleRate) * 30),
+                    reason: `三联反转: 预测反转`,
+                    type: 'tripleLink'
+                };
+            }
+        }
+
+        /**
+         * 单双组合模式识别策略
+         * @returns {object}
+         */
+        function comboPatternStrategy() {
+            if (historyData.length < 6) {
+                return { prediction: null, confidence: 0, reason: '数据不足', type: 'combo' };
+            }
+
+            return { prediction: null, confidence: 20, reason: '未检测到组合模式', type: 'combo' };
+        }
+
+        /**
+         * 震荡模式识别策略
+         * @returns {object}
+         */
+        function volatileMarketStrategy() {
+            if (historyData.length < 10) {
+                return { isVolatile: false, confidence: 0, suggestion: '数据不足' };
+            }
+
+            const windowSize = 10;
+            const recent = historyData.slice(-windowSize).map(item => getSize(item.sum));
+
+            let consecutiveSame = 0;
+            let maxConsecutive = 0;
+            let alternations = 0;
+            
+            for (let i = 0; i < recent.length; i++) {
+                if (i > 0) {
+                    if (recent[i] === recent[i-1]) {
+                        consecutiveSame++;
+                        if (consecutiveSame > maxConsecutive) {
+                            maxConsecutive = consecutiveSame;
+                        }
+                    } else {
+                        alternations++;
+                        consecutiveSame = 0;
+                    }
+                }
+            }
+
+            const isVolatile = maxConsecutive <= 2 && alternations >= 4;
+            
+            if (isVolatile) {
+                return {
+                    isVolatile: true,
+                    confidence: 60,
+                    suggestion: '震荡模式，建议谨慎'
+                };
+            }
+
+            return { isVolatile: false, confidence: 0, suggestion: '' };
+        }
+
+        /**
+         * 综合加权策略
+         * @returns {object}
+         */
+        function weightedStrategy() {
+            const strategies = [
+                { name: 'reverse', ...reverseStrategy(), weight: config.reverseWeight },
+                { name: 'sliding', ...slidingWindowStrategy(), weight: config.slidingWeight },
+                { name: 'pattern', ...patternMatchingStrategy(), weight: config.patternWeight },
+                { name: 'longStreak', ...longStreakStrategy(), weight: config.longStreakWeight },
+                { name: 'singleJump', ...singleJumpStrategy(), weight: config.singleJumpWeight },
+                { name: 'tripleLink', ...tripleLinkStrategy(), weight: config.tripleLinkWeight },
+                { name: 'combo', ...comboPatternStrategy(), weight: config.comboWeight }
+            ];
+
+            let bigScore = 0;
+            let smallScore = 0;
+            let totalWeight = 0;
+            let validStrategies = 0;
+
+            strategies.forEach(s => {
+                if (s.prediction && s.confidence > 0) {
+                    const weightedScore = s.weight * (s.confidence / 100);
+                    if (s.prediction === 'big') {
+                        bigScore += weightedScore;
+                    } else {
+                        smallScore += weightedScore;
+                    }
+                    totalWeight += s.weight;
+                    validStrategies++;
+                }
+            });
+
+            if (validStrategies === 0) {
+                return { prediction: null, confidence: 0, reason: '无有效策略' };
+            }
+
+            const total = bigScore + smallScore;
+            const diff = Math.abs(bigScore - smallScore);
+            
+            let prediction, confidence;
+            if (bigScore > smallScore) {
+                prediction = 'big';
+                confidence = Math.round(50 + (diff / total) * 50);
+            } else if (smallScore > bigScore) {
+                prediction = 'small';
+                confidence = Math.round(50 + (diff / total) * 50);
+            } else {
+                return { prediction: null, confidence: 50, reason: '各策略势均力敌' };
+            }
+
+            return { 
+                prediction, 
+                confidence,
+                reason: `大:${bigScore.toFixed(1)} 小:${smallScore.toFixed(1)}` 
+            };
+        }
+
+        // =============================================
+        // 数据操作
+        // =============================================
+
+        /**
+         * 执行预测 - V8核心逻辑
+         */
+        function executePrediction() {
+            const periodInput = document.getElementById('periodInput');
+            const sumInput = document.getElementById('sumInput');
+            
+            const period = periodInput.value.trim();
+            const sum = parseInt(sumInput.value);
+
+            // 验证期号
+            if (!period) {
+                showToast('请输入期号', 'error');
+                return;
+            }
+
+            // 检查期号是否已存在（仅当要录入时才检查）
+            const hasSum = !isNaN(sum) && sum >= 3 && sum <= 18;
+            if (hasSum && historyData.some(item => item.period === period)) {
+                showToast('该期号已存在', 'error');
+                return;
+            }
+
+            // 生成预测
+            currentPrediction = generatePrediction();
+            
+            // 更新预测面板显示
+            updatePrediction();
+            
+            // 如果处于等待模式
+            if (currentPrediction.isWaiting) {
+                // 等待模式：仍然允许录入数据，但不输出预测
+                if (hasSum) {
+                    addRecordOnly(period, sum);
+                    showToast('⏳ 等待模式：数据已录入，请等待规律明确', 'warning');
+                } else {
+                    showToast('⏳ 等待数据规律明确', 'warning');
+                }
+                return;
+            }
+
+            // 如果没有和值，只显示预测结果
+            if (!hasSum) {
+                const trialText = isTrialMode ? ' (🔍试探预测)' : '';
+                showToast(`预测已生成${trialText}，请录入和值后继续`);
+                return;
+            }
+
+            // 有和值：添加记录并对比
+            addRecordWithPrediction(period, sum, currentPrediction);
+        }
+
+        /**
+         * V8 仅录入数据（不生成预测，用于等待模式）
+         */
+        function addRecordOnly(period, sum) {
+            const actual = getSize(sum);
+
+            // 增加等待期数计数
+            waitPeriodsCount++;
+
+            // 添加记录（无预测）
+            const newRecord = {
+                period,
+                sum,
+                size: actual,
+                prediction: null,
+                confidence: null,
+                correct: null,
+                timestamp: Date.now()
+            };
+
+            historyData.push(newRecord);
+
+            // 自动递增期号到下一期
+            const nextPeriod = parseInt(period) + 1;
+            periodInput.value = nextPeriod;
+            periodManuallyEdited = false;
+
+            // 保存并更新UI
+            saveToStorage();
+            updateUI();
+            
+            // 清空和值输入
+            document.getElementById('sumInput').value = '';
+        }
+
+        /**
+         * V8 录入数据并记录预测结果
+         */
+        function addRecordWithPrediction(period, sum, prediction) {
+            const actual = getSize(sum);
+            const isCorrect = prediction.final && prediction.final === actual;
+
+            // 添加记录
+            const newRecord = {
+                period,
+                sum,
+                size: actual,
+                prediction: prediction.final ? (prediction.final === 'big' ? '大' : '小') : null,
+                confidence: prediction.confidence || null,
+                correct: isCorrect,
+                timestamp: Date.now(),
+                isTrial: isTrialMode
+            };
+
+            historyData.push(newRecord);
+            
+            // 更新预测历史
+            if (prediction.final) {
+                predictionHistory.push({
+                    prediction: prediction.final,
+                    actual: actual,
+                    correct: isCorrect,
+                    confidence: prediction.confidence,
+                    isTrial: isTrialMode
+                });
+                
+                if (isCorrect) {
+                    // 预测正确
+                    if (isTrialMode) {
+                        // 试探预测成功，正式恢复
+                        isTrialMode = false;
+                        isWaitingMode = false;
+                        currentErrorStreak = 0;
+                        waitStartingErrorCount = 0;
+                        waitPeriodsCount = 0;
+                        console.log('[V8] 试探预测成功！正式恢复，连错清零');
+                    } else {
+                        currentErrorStreak = 0;
+                    }
+                } else {
+                    // 预测错误
+                    currentErrorStreak++;
+                    if (currentErrorStreak > maxErrorStreak) {
+                        maxErrorStreak = currentErrorStreak;
+                    }
+                    
+                    // 检查是否需要进入等待模式
+                    if (currentErrorStreak >= 2) {
+                        if (!isWaitingMode) {
+                            enterWaitMode();
+                        }
+                        
+                        if (isTrialMode) {
+                            // 试探预测失败
+                            trialFailed();
+                        }
+                    }
+                }
+            }
+
+            // 自动递增期号到下一期
+            const nextPeriod = parseInt(period) + 1;
+            document.getElementById('periodInput').value = nextPeriod;
+            periodManuallyEdited = false;
+
+            // 保存并更新UI
+            saveToStorage();
+            updateUI();
+            
+            // 清空和值输入
+            document.getElementById('sumInput').value = '';
+            
+            // 显示预测结果
+            const resultText = prediction.final ? (prediction.final === 'big' ? '大' : '小') : '数据不足';
+            const statusText = isCorrect ? '✓ 正确' : (prediction.final ? '✗ 错误' : '');
+            const trialText = isTrialMode ? '🔍试探-' : '';
+            showToast(`第${period}期: ${trialText}预测${resultText} 实际${actual === 'big' ? '大' : '小'} ${statusText}`, isCorrect ? 'success' : 'error');
+
+            // 更新预测面板的期号显示
+            updatePredictionLabel();
+        }
+
+        /**
+         * 批量导入
+         */
+        function batchImport() {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.xlsx,.xls,.csv';
+            fileInput.onchange = function(event) {
+                importExcel(event);
+            };
+            fileInput.click();
+        }
+
+        /**
+         * 删除记录
+         * @param {string} period - 期号
+         */
+        function deleteRecord(period) {
+            const index = historyData.findIndex(item => item.period === period);
+            if (index !== -1) {
+                historyData.splice(index, 1);
+                saveToStorage();
+                updateUI();
+                showToast('记录已删除');
+            }
+        }
+
+        /**
+         * 清空所有数据
+         */
+        function clearAllData() {
+            if (confirm('确定要清空所有数据吗？此操作不可恢复！')) {
+                historyData = [];
+                predictionHistory = [];
+                currentErrorStreak = 0;
+                maxErrorStreak = 0;
+                isWaitingMode = false;
+                waitStartingErrorCount = 0;
+                waitPeriodsCount = 0;
+                totalWaitCount = 0;
+                waitPenaltyLevel = 0;
+                isTrialMode = false;
+                periodManuallyEdited = false;
+                document.getElementById('periodInput').value = '1';
+                saveToStorage();
+                updateUI();
+                showToast('所有数据已清空');
+            }
+        }
+
+        /**
+         * 从Excel导入数据
+         * @param {event} event - 文件选择事件
+         */
+        function importExcel(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (typeof XLSX === 'undefined') {
+                showToast('Excel解析库未加载，请刷新页面后重试', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
+                        throw new Error('Excel文件没有有效的工作表');
+                    }
+                    
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    if (!firstSheet) {
+                        throw new Error('无法读取工作表内容');
+                    }
+                    
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                    
+                    if (!Array.isArray(jsonData) || jsonData.length === 0) {
+                        showToast('文件中没有找到有效数据', 'error');
+                        return;
+                    }
+
+                    let imported = 0;
+                    let skipped = 0;
+
+                    jsonData.forEach((row, index) => {
+                        try {
+                            const keys = Object.keys(row);
+                            
+                            // 识别期号
+                            let period = null;
+                            const periodKeys = ['期号', 'period', '期数', '编号', 'num', 'no', 'No', 'NO', '期', '期次', '流水号', 'id', 'ID', 'Id', 'index', 'Index', '序号'];
+                            for (const key of periodKeys) {
+                                if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+                                    period = row[key];
+                                    break;
+                                }
+                            }
+                            if (!period) {
+                                for (const key of keys) {
+                                    if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+                                        const val = String(row[key]).trim();
+                                        if (!isNaN(val) && val !== '') {
+                                            period = val;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // 识别和值
+                            let sum = null;
+                            const sumKeys = ['和值', 'sum', 'SUM', '结果', '数字', 'number', 'NUMBER', 'num', 'NUM', '值', '点数', '总点数', 'Dice Sum'];
+                            for (const key of sumKeys) {
+                                if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+                                    sum = parseFloat(row[key]);
+                                    break;
+                                }
+                            }
+                            if (isNaN(sum) || sum === null) {
+                                let foundFirst = false;
+                                for (const key of keys) {
+                                    if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+                                        const val = row[key];
+                                        if (foundFirst && !isNaN(parseFloat(val))) {
+                                            sum = parseFloat(val);
+                                            break;
+                                        }
+                                        if (!isNaN(parseFloat(String(val))) && String(val).trim() !== String(period)) {
+                                            if (!foundFirst) {
+                                                foundFirst = true;
+                                            } else {
+                                                sum = parseFloat(val);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            const rowNum = index + 2;
+                            
+                            if (!period) {
+                                skipped++;
+                            } else if (isNaN(sum) || sum === null || sum < 3 || sum > 18) {
+                                skipped++;
+                            } else if (historyData.some(item => item.period === String(period))) {
+                                skipped++;
+                            } else {
+                                const actual = getSize(sum);
+                                historyData.push({
+                                    period: String(period),
+                                    sum: sum,
+                                    size: actual,
+                                    prediction: null,
+                                    confidence: null,
+                                    correct: null,
+                                    timestamp: Date.now()
+                                });
+                                imported++;
+                            }
+                        } catch (rowErr) {
+                            console.warn(`处理第${index + 1}行数据时出错:`, rowErr);
+                            skipped++;
+                        }
+                    });
+
+                    if (historyData.length > 0) {
+                        const maxPeriod = Math.max(...historyData.map(item => parseInt(item.period) || 0));
+                        document.getElementById('periodInput').value = maxPeriod + 1;
+                    }
+                    periodManuallyEdited = false;
+                    saveToStorage();
+                    updateUI();
+                    
+                    if (imported > 0) {
+                        let msg = `成功导入 ${imported} 条记录`;
+                        if (skipped > 0) {
+                            msg += `，跳过 ${skipped} 条`;
+                        }
+                        showToast(msg);
+                    } else {
+                        showToast('未找到有效数据', 'error');
+                    }
+                } catch (err) {
+                    console.error('导入失败:', err);
+                    showToast('文件解析失败: ' + err.message, 'error');
+                }
+            };
+            
+            reader.onerror = function() {
+                showToast('文件读取失败，请重试', 'error');
+            };
+            
+            reader.readAsArrayBuffer(file);
+            event.target.value = '';
+        }
+
+        /**
+         * 导出数据为Excel
+         */
+        function exportData() {
+            if (historyData.length === 0) {
+                showToast('没有数据可导出', 'error');
+                return;
+            }
+
+            const exportData = historyData.map(item => ({
+                '期号': item.period,
+                '和值': item.sum,
+                '大小': item.size === 'big' ? '大' : '小',
+                '预测': item.prediction || '--',
+                '信度': item.confidence !== null && item.confidence !== undefined ? item.confidence + '%' : '--',
+                '结果': item.correct === true ? '★' : item.correct === false ? '×' : '--'
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '预测数据');
+
+            const fileName = `骰子预测数据_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showToast(`数据已导出为 ${fileName}`);
+        }
+
+        // =============================================
+        // UI更新
+        // =============================================
+
+        /**
+         * 更新所有UI
+         */
+        function updateUI() {
+            updateWaitStatusPanel();
+            updatePrediction();
+            updateStats();
+            updateHistoryTable();
+        }
+
+        /**
+         * V8 更新等待状态面板
+         */
+        function updateWaitStatusPanel() {
+            const panel = document.getElementById('waitStatusPanel');
+            
+            if (!isWaitingMode) {
+                panel.classList.add('hidden');
+                return;
+            }
+
+            panel.classList.remove('hidden');
+
+            const recovery = checkRecoveryConditions();
+            
+            document.getElementById('waitPeriods').textContent = waitPeriodsCount;
+            document.getElementById('minWaitPeriods').textContent = getMinWaitPeriods();
+            document.getElementById('recoveryConditions').textContent = `${recovery.metCount}/${recovery.minRequired}`;
+            document.getElementById('totalWaitCount').textContent = totalWaitCount;
+
+            // 更新条件列表
+            const conditionList = document.getElementById('conditionList');
+            conditionList.innerHTML = recovery.conditions.map(c => `
+                <div class="condition-item ${c.met ? 'met' : 'unmet'}">
+                    <span>${c.met ? '✓' : '○'}</span>
+                    <span>${c.text}</span>
+                    <span style="margin-left: auto; opacity: 0.8;">${c.detail}</span>
+                </div>
+            `).join('');
+
+            // 试探预测警告
+            const trialWarning = document.getElementById('trialWarning');
+            if (isTrialMode) {
+                trialWarning.classList.remove('hidden');
+            } else {
+                trialWarning.classList.add('hidden');
+            }
+        }
+
+        /**
+         * 更新预测显示
+         */
+        function updatePrediction() {
+            const prediction = generatePrediction();
+            currentPrediction = prediction;
+            
+            const displayEl = document.getElementById('predictionDisplay');
+            const resultEl = document.getElementById('predictionResult');
+            const confidenceEl = document.getElementById('confidenceValue');
+            const suggestionEl = document.getElementById('suggestion');
+            const predictBtn = document.getElementById('predictBtn');
+
+            // 重置显示类
+            displayEl.className = 'prediction-display';
+
+            // V8 等待模式
+            if (prediction.isWaiting) {
+                resultEl.textContent = '⏳ 等待规律明确';
+                resultEl.className = 'prediction-result waiting';
+                confidenceEl.textContent = '--';
+                suggestionEl.textContent = '请继续录入数据，观察趋势';
+                predictBtn.disabled = false; // 允许录入数据
+                predictBtn.textContent = '录入数据(仅记录)';
+                displayEl.classList.add('wait-mode');
+                
+                updateStrategyDetails(prediction.details);
+                return;
+            }
+
+            // 恢复正常按钮
+            predictBtn.disabled = false;
+            predictBtn.textContent = '执行预测';
+
+            if (!prediction.final) {
+                resultEl.textContent = '数据不足';
+                resultEl.className = 'prediction-result neutral';
+                confidenceEl.textContent = '--';
+                suggestionEl.textContent = '需要至少5期历史数据';
+            } else {
+                // 根据连错级别添加保护标记
+                let resultText = prediction.final === 'big' ? '大' : '小';
+                
+                if (isTrialMode) {
+                    resultText = '🔍 ' + resultText;
+                    displayEl.classList.add('warning-mode');
+                } else if (prediction.warning) {
+                    resultText = '⚠️ ' + resultText;
+                    displayEl.classList.add('warning-mode');
+                }
+                
+                if (prediction.isVolatile) {
+                    resultText = '⚡ ' + resultText;
+                }
+                
+                resultEl.textContent = resultText;
+                resultEl.className = `prediction-result ${prediction.final}`;
+                
+                confidenceEl.textContent = prediction.confidence;
+                if (prediction.confidence < 35) {
+                    confidenceEl.className = 'confidence-very-low';
+                } else if (prediction.confidence < 50) {
+                    confidenceEl.className = 'confidence-low';
+                } else {
+                    confidenceEl.className = '';
+                }
+                
+                // 根据预测来源显示建议
+                let suggestionText = '';
+                if (isTrialMode) {
+                    suggestionText = '🔍 试探预测模式 - 验证正确后正式恢复';
+                } else if (prediction.warning) {
+                    suggestionText = '⚠️ ' + (prediction.warningMsg || '策略已调整');
+                } else if (prediction.isVolatile) {
+                    suggestionText = '⚡ 震荡行情，谨慎参考';
+                } else {
+                    suggestionText = '✓ 基于多策略综合分析';
+                }
+                suggestionEl.textContent = suggestionText;
+            }
+
+            // 更新策略详情
+            updateStrategyDetails(prediction.details);
+            
+            // 更新模式识别显示
+            if (prediction.details && prediction.details.patternRecognition) {
+                updatePatternRecognition(prediction.details.patternRecognition);
+            }
+            
+            // 更新期号显示
+            updatePredictionLabel();
+        }
+
+        /**
+         * 更新模式识别显示区域
+         * @param {object} patterns - 模式识别结果
+         */
+        function updatePatternRecognition(patterns) {
+            const patternGrid = document.getElementById('patternGrid');
+            
+            if (!patterns || historyData.length < 5) {
+                patternGrid.innerHTML = '<div class="no-pattern">数据不足，无法进行模式识别</div>';
+                return;
+            }
+
+            const patternItems = [];
+            
+            if (patterns.longStreak && patterns.longStreak.active) {
+                patternItems.push({
+                    icon: '🔥',
+                    name: '长龙',
+                    direction: patterns.longStreak.prediction === 'big' ? '大' : '小',
+                    directionClass: patterns.longStreak.prediction,
+                    active: true
+                });
+            }
+            
+            if (patterns.singleJump && patterns.singleJump.active) {
+                patternItems.push({
+                    icon: '🔀',
+                    name: '单跳',
+                    direction: patterns.singleJump.prediction === 'big' ? '大' : '小',
+                    directionClass: patterns.singleJump.prediction,
+                    active: true
+                });
+            }
+            
+            if (patterns.tripleLink && patterns.tripleLink.active) {
+                patternItems.push({
+                    icon: '📊',
+                    name: '三联',
+                    direction: patterns.tripleLink.prediction === 'big' ? '大' : '小',
+                    directionClass: patterns.tripleLink.prediction,
+                    active: true
+                });
+            }
+            
+            if (patterns.combo && patterns.combo.active) {
+                patternItems.push({
+                    icon: '🎯',
+                    name: '组合',
+                    direction: patterns.combo.prediction === 'big' ? '大' : '小',
+                    directionClass: patterns.combo.prediction,
+                    active: true
+                });
+            }
+            
+            if (patterns.isVolatile) {
+                patternItems.push({
+                    icon: '⚡',
+                    name: '震荡',
+                    direction: '谨慎',
+                    directionClass: '',
+                    active: true,
+                    warning: true
+                });
+            }
+
+            if (patternItems.length === 0) {
+                patternGrid.innerHTML = '<div class="no-pattern">未检测到明显模式</div>';
+            } else {
+                patternGrid.innerHTML = patternItems.map(item => `
+                    <div class="pattern-item ${item.active ? 'active' : ''} ${item.warning ? 'warning' : ''}">
+                        <span class="pattern-icon">${item.icon}</span>
+                        <span class="pattern-name">${item.name}</span>
+                        <span class="pattern-direction ${item.directionClass}">${item.direction}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        /**
+         * 更新预测面板的期号显示
+         */
+        function updatePredictionLabel() {
+            const periodInput = document.getElementById('periodInput');
+            const nextPeriodSpan = document.getElementById('nextPeriodNumber');
+            if (periodInput && nextPeriodSpan) {
+                const currentPeriod = parseInt(periodInput.value) || 1;
+                nextPeriodSpan.textContent = currentPeriod;
+            }
+        }
+
+        /**
+         * 更新策略详情显示
+         * @param {object} details - 各策略详情
+         */
+        function updateStrategyDetails(details) {
+            if (!details) return;
+
+            const elements = {
+                strategyReverse: details.reverse,
+                strategySliding: details.sliding,
+                strategyPattern: details.pattern,
+                strategyWeighted: details.weighted
+            };
+
+            Object.entries(elements).forEach(([id, strategy]) => {
+                const el = document.getElementById(id);
+                if (strategy && strategy.prediction) {
+                    el.textContent = (strategy.prediction === 'big' ? '大' : '小') + ` (${strategy.confidence}%)`;
+                    el.className = `value ${strategy.prediction}`;
+                } else {
+                    el.textContent = '--';
+                    el.className = 'value';
+                }
+            });
+            
+            // 更新保护状态显示 - V8
+            const protectionEl = document.getElementById('strategyWeighted');
+            if (isTrialMode) {
+                protectionEl.textContent = '🔍 试探预测模式';
+                protectionEl.className = 'value';
+                protectionEl.style.color = 'var(--purple)';
+            } else if (isWaitingMode) {
+                protectionEl.textContent = '⏳ 等待模式';
+                protectionEl.className = 'value';
+                protectionEl.style.color = 'var(--warning)';
+            } else if (currentErrorStreak === 1) {
+                protectionEl.textContent = '⚠️ 连错1次预警';
+                protectionEl.className = 'value';
+                protectionEl.style.color = 'var(--warning)';
+            } else if (details.weighted) {
+                protectionEl.textContent = '✓ 正常模式';
+                protectionEl.className = 'value';
+                protectionEl.style.color = 'var(--success)';
+            }
+        }
+
+        /**
+         * 更新统计面板
+         */
+        function updateStats() {
+            document.getElementById('totalPredictions').textContent = predictionHistory.length;
+            
+            // 计算准确率
+            if (predictionHistory.length > 0) {
+                const correct = predictionHistory.filter(p => p.correct).length;
+                const accuracy = Math.round((correct / predictionHistory.length) * 100);
+                document.getElementById('accuracy').textContent = accuracy + '%';
+            } else {
+                document.getElementById('accuracy').textContent = '--%';
+            }
+
+            // 计算平均信度
+            const validConfidences = predictionHistory.filter(p => p.confidence !== undefined && p.confidence !== null);
+            if (validConfidences.length > 0) {
+                const avgConfidence = Math.round(validConfidences.reduce((sum, p) => sum + p.confidence, 0) / validConfidences.length);
+                document.getElementById('avgConfidence').textContent = avgConfidence + '%';
+            } else {
+                document.getElementById('avgConfidence').textContent = '--%';
+            }
+
+            // V8 连错显示 - 0次绿 / 1次黄 / 2次红⚠️
+            const streakEl = document.getElementById('currentStreak');
+            streakEl.textContent = currentErrorStreak;
+            if (currentErrorStreak === 0) {
+                streakEl.className = 'value success';
+            } else if (currentErrorStreak === 1) {
+                streakEl.className = 'value warning';
+            } else {
+                streakEl.className = 'value danger';
+            }
+
+            document.getElementById('maxStreak').textContent = maxErrorStreak;
+        }
+
+        /**
+         * 更新历史记录表格
+         */
+        function updateHistoryTable() {
+            const tbody = document.getElementById('historyBody');
+            const emptyState = document.getElementById('emptyState');
+
+            if (historyData.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            // 按时间倒序显示
+            const sortedData = [...historyData].reverse();
+            
+            tbody.innerHTML = sortedData.map(item => {
+                const predictionDisplay = item.prediction ? 
+                    `<span class="tag ${item.size === 'big' ? 'tag-big' : 'tag-small'}">${item.prediction}</span>` : 
+                    '<span class="prediction-tag pending">--</span>';
+                const confidenceDisplay = item.confidence !== null && item.confidence !== undefined ? 
+                    `<span style="color: var(--accent-blue);">${item.confidence}%</span>` : 
+                    '<span style="color: var(--text-secondary);">—</span>';
+                const resultDisplay = item.correct === true ? 
+                    '<span class="result-correct">★</span>' : 
+                    item.correct === false ? 
+                    '<span class="result-wrong">×</span>' : 
+                    '<span style="color: var(--text-secondary);">--</span>';
+                const trialMark = item.isTrial ? '🔍' : '';
+                return `
+                <tr>
+                    <td>${item.period}${trialMark}</td>
+                    <td>${item.sum}</td>
+                    <td>
+                        <span class="tag ${item.size === 'big' ? 'tag-big' : 'tag-small'}">
+                            ${item.size === 'big' ? '大' : '小'}
+                        </span>
+                    </td>
+                    <td>${predictionDisplay}</td>
+                    <td>${confidenceDisplay}</td>
+                    <td>${resultDisplay}</td>
+                    <td>
+                        <button class="delete-btn" onclick="deleteRecord('${item.period}')" title="删除">
+                            🗑️
+                        </button>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        /**
+         * 更新设置UI
+         */
+        function updateSettingsUI() {
+            document.getElementById('windowSize').value = config.windowSize;
+            document.getElementById('windowSizeValue').textContent = config.windowSize;
+            
+            document.getElementById('patternLength').value = config.patternLength;
+            document.getElementById('patternLengthValue').textContent = config.patternLength;
+            
+            document.getElementById('reverseWeight').value = config.reverseWeight;
+            document.getElementById('reverseWeightValue').textContent = config.reverseWeight;
+        }
+
+        /**
+         * 更新单个设置
+         * @param {string} key - 设置键名
+         * @param {any} value - 设置值
+         */
+        function updateSetting(key, value) {
+            config[key] = parseInt(value);
+            document.getElementById(key + 'Value').textContent = value;
+            saveToStorage();
+            updatePrediction();
+        }
+
+        /**
+         * 重置设置为默认值
+         */
+        function resetSettings() {
+            config = { ...DEFAULT_CONFIG };
+            updateSettingsUI();
+            saveToStorage();
+            updatePrediction();
+            showToast('设置已重置为默认值');
+        }
+
+        // =============================================
+        // 初始化
+        // =============================================
+
+        /**
+         * 页面加载完成后初始化
+         */
+        document.addEventListener('DOMContentLoaded', function() {
+            // 动态设置标题（使用VERSION变量）
+            document.title = SYSTEM_NAME;
+            document.getElementById('systemTitle').textContent = '🎲 ' + SYSTEM_NAME;
+            
+            // 从localStorage加载数据
+            loadFromStorage();
+            
+            // 更新UI
+            updateUI();
+
+            // 监听回车键快速执行预测（两个输入框都支持）
+            document.getElementById('periodInput').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    executePrediction();
+                }
+            });
+            
+            // 监听期号手动修改
+            document.getElementById('periodInput').addEventListener('input', function(e) {
+                periodManuallyEdited = true;
+                updatePredictionLabel();
+            });
+            
+            document.getElementById('periodInput').addEventListener('focus', function(e) {
+                updatePredictionLabel();
+            });
+            
+            // 和值输入框也支持回车执行预测
+            document.getElementById('sumInput').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    executePrediction();
+                }
+            });
+
+            console.log('🎲 骰子预测系统V8已初始化 - 连错>=2强制等待机制已启用');
+        });
+
+        // =============================================
+        // 导出函数供控制台调试
+        // =============================================
+        window.DicePrediction = {
+            getHistory: () => historyData,
+            getConfig: () => config,
+            getPrediction: generatePrediction,
+            getWaitStatus: () => ({
+                isWaitingMode,
+                waitPeriodsCount,
+                totalWaitCount,
+                waitPenaltyLevel,
+                isTrialMode,
+                currentErrorStreak
+            }),
+            addManual: (period, sum) => {
+                if (!historyData.some(item => item.period === period)) {
+                    historyData.push({
+                        period,
+                        sum,
+                        size: getSize(sum),
+                        timestamp: Date.now()
+                    });
+                    saveToStorage();
+                    updateUI();
+                    return true;
+                }
+                return false;
+            }
+        };
+    </script>
+</body>
+</html>
